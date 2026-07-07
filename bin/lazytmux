@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT="${LAZYTMUX_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+
+if command -v luajit >/dev/null 2>&1; then
+  exec luajit "$ROOT/lua/lazytmux/cli.lua" "$@"
+fi
+
+if command -v lua >/dev/null 2>&1; then
+  exec lua "$ROOT/lua/lazytmux/cli.lua" "$@"
+fi
+
+printf '%s\n' "LazyTmux requires lua or luajit on PATH." >&2
+exit 127
+
