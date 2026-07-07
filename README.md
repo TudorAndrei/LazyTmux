@@ -29,8 +29,11 @@ The starter template lives in:
 starter/.tmux.conf
 ```
 
-That file can be copied as the initial contents of a separate
-`LazyTmux-starter` repository.
+The starter repo is:
+
+```text
+https://github.com/TudorAndrei/LazyTmux-starter
+```
 
 ### Manual Install
 
