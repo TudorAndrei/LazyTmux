@@ -110,7 +110,13 @@ Inside tmux, `bin/lazytmux popup` opens the UI in a centered tmux popup.
 
 ## Development
 
-Run the Lua linter with:
+Run all pre-commit checks with hk:
+
+```sh
+mise exec -- hk check --all
+```
+
+Run the Lua linter directly with:
 
 ```sh
 scripts/lint-lua

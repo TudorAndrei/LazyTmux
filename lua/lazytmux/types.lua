@@ -42,4 +42,3 @@
 ---@field window { normal: LazyTmuxWindowStatus, current: LazyTmuxWindowStatus } Window label styles.
 ---@field left LazyTmuxStatusBlock[] Left statusline blocks, rendered in order.
 ---@field right LazyTmuxStatusBlock[] Right statusline blocks, rendered in order.
-

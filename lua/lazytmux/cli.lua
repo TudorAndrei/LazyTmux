@@ -2,8 +2,7 @@ local M = {}
 
 local unpack = rawget(table, "unpack") or rawget(_G, "unpack")
 
-local root = os.getenv("LAZYTMUX_ROOT")
-  or debug.getinfo(1, "S").source:sub(2):match("^(.*)/lua/lazytmux/cli%.lua$")
+local root = os.getenv("LAZYTMUX_ROOT") or debug.getinfo(1, "S").source:sub(2):match("^(.*)/lua/lazytmux/cli%.lua$")
 local home = os.getenv("HOME")
 local config_dir = os.getenv("LAZYTMUX_CONFIG") or (home .. "/.config/lazytmux")
 local data_dir = os.getenv("LAZYTMUX_DATA") or (home .. "/.local/share/lazytmux")
@@ -50,8 +49,7 @@ local function mkdir(path)
 end
 
 local function process_alive(pid)
-  return run("kill -0", q(pid), "2>/dev/null") == true
-    or run("kill -0", q(pid), "2>/dev/null") == 0
+  return run("kill -0", q(pid), "2>/dev/null") == true or run("kill -0", q(pid), "2>/dev/null") == 0
 end
 
 local function copy_default_spec()
@@ -150,13 +148,15 @@ function M.list()
   local specs = load_specs()
   print(string.format("%-12s  %-24s  %-7s  %s", "STATUS", "PLUGIN", "ENABLED", "DESCRIPTION"))
   for _, plugin in ipairs(specs) do
-    print(string.format(
-      "%-12s  %-24s  %-7s  %s",
-      status(plugin),
-      plugin.name,
-      plugin.enabled and "yes" or "no",
-      plugin.desc
-    ))
+    print(
+      string.format(
+        "%-12s  %-24s  %-7s  %s",
+        status(plugin),
+        plugin.name,
+        plugin.enabled and "yes" or "no",
+        plugin.desc
+      )
+    )
   end
 end
 
@@ -212,9 +212,8 @@ function M.source()
 
   for _, plugin in ipairs(load_specs()) do
     if plugin.enabled and is_dir(plugin_path(plugin)) then
-      local entry = capture(
-        "find " .. q(plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1"
-      )
+      local entry =
+        capture("find " .. q(plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1")
       if entry ~= "" then
         run("tmux source-file", q(entry))
       end
@@ -223,8 +222,7 @@ function M.source()
 end
 
 local function command_exists(name)
-  return run("command -v", q(name), ">/dev/null 2>&1") == true
-    or run("command -v", q(name), ">/dev/null 2>&1") == 0
+  return run("command -v", q(name), ">/dev/null 2>&1") == true or run("command -v", q(name), ">/dev/null 2>&1") == 0
 end
 
 function M.doctor()
@@ -252,13 +250,8 @@ end
 local function render_rows()
   local rows = {}
   for _, plugin in ipairs(load_specs()) do
-    rows[#rows + 1] = string.format(
-      "%-11s %-7s %-24s %s",
-      status(plugin),
-      plugin.enabled and "yes" or "no",
-      plugin.name,
-      plugin.desc
-    )
+    rows[#rows + 1] =
+      string.format("%-11s %-7s %-24s %s", status(plugin), plugin.enabled and "yes" or "no", plugin.name, plugin.desc)
   end
   return rows
 end
@@ -318,9 +311,8 @@ local function fzf_ui()
       "--border=rounded",
       "--layout=reverse",
       "--prompt='LazyTmux plugins > '",
-      "--header=" .. q(
-        "enter: toggle  ctrl-i: install  ctrl-u: update  ctrl-s: sync  ctrl-r: source  ctrl-e: edit  esc: quit"
-      ),
+      "--header="
+        .. q("enter: toggle  ctrl-i: install  ctrl-u: update  ctrl-s: sync  ctrl-r: source  ctrl-e: edit  esc: quit"),
       "--expect=enter,ctrl-i,ctrl-u,ctrl-s,ctrl-r,ctrl-e",
       "--preview=" .. q(preview),
       "--preview-window=down,35%,wrap",
