@@ -1,6 +1,6 @@
 local M = {}
 
-local unpack = table.unpack or unpack
+local unpack = rawget(table, "unpack") or rawget(_G, "unpack")
 
 local root = os.getenv("LAZYTMUX_ROOT")
   or debug.getinfo(1, "S").source:sub(2):match("^(.*)/lua/lazytmux/cli%.lua$")
@@ -47,6 +47,11 @@ end
 
 local function mkdir(path)
   run("mkdir -p", q(path))
+end
+
+local function process_alive(pid)
+  return run("kill -0", q(pid), "2>/dev/null") == true
+    or run("kill -0", q(pid), "2>/dev/null") == 0
 end
 
 local function copy_default_spec()
@@ -207,7 +212,9 @@ function M.source()
 
   for _, plugin in ipairs(load_specs()) do
     if plugin.enabled and is_dir(plugin_path(plugin)) then
-      local entry = capture("find " .. q(plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1")
+      local entry = capture(
+        "find " .. q(plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1"
+      )
       if entry ~= "" then
         run("tmux source-file", q(entry))
       end
@@ -293,8 +300,17 @@ local function fzf_ui()
     f:write("\n")
     f:close()
 
-    local preview = "name=$(awk '{print $3}' <<< {}); path=" .. q(plugin_dir) .. "/$name; "
-      .. 'if [ -d "$path/.git" ]; then git -C "$path" log -1 --oneline; printf "\\n"; git -C "$path" remote -v; else printf "Not installed\\n"; fi'
+    local preview = table.concat({
+      "name=$(awk '{print $3}' <<< {});",
+      "path=" .. q(plugin_dir) .. "/$name;",
+      'if [ -d "$path/.git" ]; then',
+      'git -C "$path" log -1 --oneline;',
+      'printf "\\n";',
+      'git -C "$path" remote -v;',
+      "else",
+      'printf "Not installed\\n";',
+      "fi",
+    }, " ")
     local fzf_cmd = table.concat({
       "fzf",
       "--ansi",
@@ -302,7 +318,9 @@ local function fzf_ui()
       "--border=rounded",
       "--layout=reverse",
       "--prompt='LazyTmux plugins > '",
-      "--header='enter: toggle  ctrl-i: install  ctrl-u: update  ctrl-s: sync  ctrl-r: source  ctrl-e: edit  esc: quit'",
+      "--header=" .. q(
+        "enter: toggle  ctrl-i: install  ctrl-u: update  ctrl-s: sync  ctrl-r: source  ctrl-e: edit  esc: quit"
+      ),
       "--expect=enter,ctrl-i,ctrl-u,ctrl-s,ctrl-r,ctrl-e",
       "--preview=" .. q(preview),
       "--preview-window=down,35%,wrap",
@@ -549,7 +567,7 @@ function M.watch(server_pid)
     if f then
       f:close()
     end
-    if pid and pid ~= "" and (run("kill -0", q(pid), "2>/dev/null") == true or run("kill -0", q(pid), "2>/dev/null") == 0) then
+    if pid and pid ~= "" and process_alive(pid) then
       return
     end
   end
@@ -564,9 +582,7 @@ function M.watch(server_pid)
   while true do
     run("sleep 1")
     if server_pid and server_pid ~= "" then
-      local alive = run("kill -0", q(server_pid), "2>/dev/null") == true
-        or run("kill -0", q(server_pid), "2>/dev/null") == 0
-      if not alive then
+      if not process_alive(server_pid) then
         os.remove(lock)
         return
       end

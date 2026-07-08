@@ -48,7 +48,10 @@ return {
       fg = c.BACKGROUND,
       bg = c.PURPLE,
       attr = "bold",
-      text = " #S#(git -C '#{pane_current_path}' rev-parse --git-dir 2>/dev/null | grep -q /worktrees/ || git -C '#{pane_current_path}' symbolic-ref --short HEAD 2>/dev/null | sed 's/.*/ (&)/') ",
+      text = " #S#("
+        .. "git -C '#{pane_current_path}' rev-parse --git-dir 2>/dev/null | grep -q /worktrees/ "
+        .. "|| git -C '#{pane_current_path}' symbolic-ref --short HEAD 2>/dev/null | sed 's/.*/ (&)/'"
+        .. ") ",
     },
     {
       fg = c.FG,

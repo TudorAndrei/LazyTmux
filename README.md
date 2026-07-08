@@ -108,6 +108,14 @@ bin/lazytmux ui
 
 Inside tmux, `bin/lazytmux popup` opens the UI in a centered tmux popup.
 
+## Development
+
+Run the Lua linter with:
+
+```sh
+scripts/lint-lua
+```
+
 ## Statusline
 
 ## Themes
