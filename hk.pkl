@@ -6,11 +6,18 @@ local linters = new Mapping<String, Step> {
     ["luacheck"] = Builtins.luacheck
 }
 
+local commit_msg_linters = new Mapping<String, Step> {
+    ["check_conventional_commit"] = Builtins.check_conventional_commit
+}
+
 hooks {
     ["pre-commit"] {
         fix = true
         stash = "git"
         steps = linters
+    }
+    ["commit-msg"] {
+        steps = commit_msg_linters
     }
     ["fix"] {
         fix = true
