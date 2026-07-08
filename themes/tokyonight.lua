@@ -1,3 +1,4 @@
+---@type LazyTmuxTheme
 return {
   name = "tokyonight",
   colors = {
@@ -25,4 +26,3 @@ return {
     mode = "fg=#1A1B26,bg=#7DCFFF",
   },
 }
-

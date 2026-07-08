@@ -1,3 +1,4 @@
+---@type LazyTmuxTheme
 return {
   name = "gruvbox",
   colors = {
@@ -25,4 +26,3 @@ return {
     mode = "fg=#282828,bg=#FABD2F",
   },
 }
-

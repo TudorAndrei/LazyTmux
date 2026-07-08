@@ -1,9 +1,3 @@
----@class LazyTmuxPluginSpec
----@field [1] string GitHub "owner/repo" or full Git URL.
----@field name string Local plugin directory name.
----@field enabled? boolean Install and source this plugin when true.
----@field desc? string Description shown in the plugin viewer.
-
 ---@type LazyTmuxPluginSpec[]
 return {
   {

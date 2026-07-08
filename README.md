@@ -116,6 +116,10 @@ Run the Lua linter with:
 scripts/lint-lua
 ```
 
+Lua language-server hints live in `lua/lazytmux/types.lua`. User-facing config
+files reference those types with `---@type ...` annotations, which avoids
+duplicate type diagnostics when editing multiple config files at once.
+
 ## Statusline
 
 ## Themes
@@ -175,6 +179,7 @@ config/options.tmux    defaults
 config/keymaps.tmux    key bindings
 plugins/default.lua    starter plugin spec
 lua/lazytmux/cli.lua   Lua plugin manager and viewer
+lua/lazytmux/types.lua Lua language-server hints for config files
 themes/default.lua     default Dracula theme
 statusline/default.lua default statusline block spec
 ```

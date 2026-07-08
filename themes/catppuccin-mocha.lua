@@ -1,3 +1,4 @@
+---@type LazyTmuxTheme
 return {
   name = "catppuccin-mocha",
   colors = {
@@ -25,4 +26,3 @@ return {
     mode = "fg=#1E1E2E,bg=#89DCEB",
   },
 }
-
