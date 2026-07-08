@@ -8,6 +8,7 @@ local home = os.getenv("HOME")
 local config_dir = os.getenv("LAZYTMUX_CONFIG") or (home .. "/.config/lazytmux")
 local data_dir = os.getenv("LAZYTMUX_DATA") or (home .. "/.local/share/lazytmux")
 local spec_file = os.getenv("LAZYTMUX_SPEC") or (config_dir .. "/plugins.lua")
+local theme_file = os.getenv("LAZYTMUX_THEME") or (config_dir .. "/theme.lua")
 local statusline_file = os.getenv("LAZYTMUX_STATUSLINE") or (config_dir .. "/statusline.lua")
 local plugin_dir = os.getenv("LAZYTMUX_PLUGIN_DIR") or (data_dir .. "/plugins")
 
@@ -54,6 +55,9 @@ local function copy_default_spec()
   if not exists(spec_file) then
     run("cp", q(root .. "/plugins/default.lua"), q(spec_file))
   end
+  if not exists(theme_file) then
+    run("cp", q(root .. "/themes/default.lua"), q(theme_file))
+  end
   if not exists(statusline_file) then
     run("cp", q(root .. "/statusline/default.lua"), q(statusline_file))
   end
@@ -72,6 +76,8 @@ Commands:
   source    Source installed tmux plugins
   ui        Open the plugin viewer in the current terminal
   popup     Open the plugin viewer in a tmux popup
+  theme     Generate tmux theme styles from theme.lua
+  themes    List bundled themes
   statusline
             Generate the tmux statusline from statusline.lua
   watch     Auto-reload LazyTmux when config files change
@@ -378,10 +384,8 @@ function M.popup()
   run("tmux display-popup -E -w 86% -h 82% -T", q(" LazyTmux "), q(root .. "/bin/lazytmux ui"))
 end
 
-local function load_statusline()
-  copy_default_spec()
-
-  local chunk, err = loadfile(statusline_file)
+local function load_lua_table(path, label)
+  local chunk, err = loadfile(path)
   if not chunk then
     error(err)
   end
@@ -391,8 +395,75 @@ local function load_statusline()
     error(spec)
   end
   if type(spec) ~= "table" then
-    error(statusline_file .. " must return a table")
+    error(path .. " must return a " .. label .. " table")
   end
+  return spec
+end
+
+local function load_theme()
+  copy_default_spec()
+  local theme = load_lua_table(theme_file, "theme")
+  theme.colors = theme.colors or {}
+  theme.styles = theme.styles or {}
+  return theme
+end
+
+function M.theme()
+  local theme = load_theme()
+  local styles = theme.styles
+  mkdir(data_dir)
+
+  local output = data_dir .. "/theme.tmux"
+  local f = assert(io.open(output, "w"))
+  f:write("# Generated from ", theme_file, "\n")
+
+  if styles.status then
+    f:write("set-option -g status-style ", q(styles.status), "\n")
+  end
+  if styles.pane_border then
+    f:write("set-option -g pane-border-style ", q(styles.pane_border), "\n")
+  end
+  if styles.pane_active_border then
+    f:write("set-option -g pane-active-border-style ", q(styles.pane_active_border), "\n")
+  end
+  if styles.display_panes then
+    f:write("set-option -g display-panes-colour ", q(styles.display_panes), "\n")
+  end
+  if styles.display_panes_active then
+    f:write("set-option -g display-panes-active-colour ", q(styles.display_panes_active), "\n")
+  end
+  if styles.clock then
+    f:write("set-window-option -g clock-mode-colour ", q(styles.clock), "\n")
+  end
+  if styles.message then
+    f:write("set-option -g message-style ", q(styles.message), "\n")
+  end
+  if styles.message_command then
+    f:write("set-option -g message-command-style ", q(styles.message_command), "\n")
+  end
+  if styles.mode then
+    f:write("set-option -g mode-style ", q(styles.mode), "\n")
+  end
+
+  f:close()
+end
+
+function M.themes()
+  print("Bundled themes:")
+  local out = capture("find " .. q(root .. "/themes") .. " -maxdepth 1 -type f -name '*.lua' | sort")
+  for file in out:gmatch("[^\n]+") do
+    local name = file:match("([^/]+)%.lua$")
+    if name ~= "default" then
+      print("  " .. name)
+    end
+  end
+  print("\nUse one by copying it to " .. theme_file)
+end
+
+local function load_statusline()
+  copy_default_spec()
+  _G.LazyTmuxTheme = load_theme()
+  local spec = load_lua_table(statusline_file, "statusline")
   return spec
 end
 
@@ -457,6 +528,7 @@ local function watch_signature()
     root .. "/config/keymaps.tmux",
     root .. "/lua/lazytmux/cli.lua",
     spec_file,
+    theme_file,
     statusline_file,
   }
   local parts = {}
@@ -503,6 +575,7 @@ function M.watch(server_pid)
     local current = watch_signature()
     if current ~= last then
       last = current
+      M.theme()
       M.statusline()
       run("tmux source-file", q(root .. "/lazytmux.tmux"))
       run("tmux display-message", q("LazyTmux auto-reloaded"))
@@ -519,6 +592,8 @@ local commands = {
   source = M.source,
   ui = M.ui,
   popup = M.popup,
+  theme = M.theme,
+  themes = M.themes,
   statusline = M.statusline,
   watch = M.watch,
   doctor = M.doctor,

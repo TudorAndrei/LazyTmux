@@ -1,6 +1,10 @@
 ---@alias LazyTmuxColor string Hex colors like "#BD93F9" or tmux color names.
 ---@alias LazyTmuxAttr "bold"|"dim"|"underscore"|"blink"|"reverse"|"hidden"|"italics"|"none"|string
 
+---@class LazyTmuxTheme
+---@field name string Active theme name.
+---@field colors table<string, LazyTmuxColor> Active theme colors.
+
 ---@class LazyTmuxStatusBlock
 ---@field fg LazyTmuxColor Foreground color for this status segment.
 ---@field bg LazyTmuxColor Background color for this status segment.
@@ -19,19 +23,10 @@
 ---@field left LazyTmuxStatusBlock[] Left statusline blocks, rendered in order.
 ---@field right LazyTmuxStatusBlock[] Right statusline blocks, rendered in order.
 
-local c = {
-  BACKGROUND = "#282A36",
-  FG = "#F8F8F2",
-  SELECTION = "#44475A",
-  COMMENT = "#6272A4",
-  PURPLE = "#BD93F9",
-  RED = "#FF5555",
-  GREEN = "#50FA7B",
-  YELLOW = "#F1FA8C",
-  ORANGE = "#FFB86C",
-  CYAN = "#8BE9FD",
-  PINK = "#FF79C6",
-}
+---@type LazyTmuxTheme
+LazyTmuxTheme = LazyTmuxTheme
+
+local c = LazyTmuxTheme.colors
 
 ---@type LazyTmuxStatuslineSpec
 return {

@@ -6,11 +6,14 @@ set-environment -gF LAZYTMUX_DATA "#{E:HOME}/.local/share/lazytmux"
 
 run-shell 'mkdir -p "$HOME/.config/lazytmux" "$HOME/.local/share/lazytmux/plugins"'
 run-shell 'test -f "$HOME/.config/lazytmux/plugins.lua" || cp "#{E:LAZYTMUX_ROOT}/plugins/default.lua" "$HOME/.config/lazytmux/plugins.lua"'
+run-shell 'test -f "$HOME/.config/lazytmux/theme.lua" || cp "#{E:LAZYTMUX_ROOT}/themes/default.lua" "$HOME/.config/lazytmux/theme.lua"'
 run-shell 'test -f "$HOME/.config/lazytmux/statusline.lua" || cp "#{E:LAZYTMUX_ROOT}/statusline/default.lua" "$HOME/.config/lazytmux/statusline.lua"'
 
 source-file -F "#{E:LAZYTMUX_ROOT}/config/options.tmux"
 source-file -F "#{E:LAZYTMUX_ROOT}/config/keymaps.tmux"
 
+run-shell '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" theme'
+source-file -F "#{E:LAZYTMUX_DATA}/theme.tmux"
 run-shell '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" statusline'
 source-file -F "#{E:LAZYTMUX_DATA}/statusline.tmux"
 run-shell -b '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" source'

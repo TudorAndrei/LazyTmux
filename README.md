@@ -53,13 +53,15 @@ On first load, LazyTmux copies the default plugin spec to:
 
 ```text
 ~/.config/lazytmux/plugins.lua
+~/.config/lazytmux/theme.lua
+~/.config/lazytmux/statusline.lua
 ```
 
-Edit that file to add, remove, or disable plugins.
+Edit those files to add plugins, switch themes, or change the statusline.
 
 ## Keymaps
 
-LazyTmux uses `C-a` as the prefix.
+LazyTmux uses `C-Space` as the prefix.
 
 | Key | Action |
 | --- | --- |
@@ -98,6 +100,8 @@ bin/lazytmux list
 bin/lazytmux sync
 bin/lazytmux update
 bin/lazytmux clean
+bin/lazytmux themes
+bin/lazytmux theme
 bin/lazytmux statusline
 bin/lazytmux ui
 ```
@@ -105,6 +109,30 @@ bin/lazytmux ui
 Inside tmux, `bin/lazytmux popup` opens the UI in a centered tmux popup.
 
 ## Statusline
+
+## Themes
+
+LazyTmux generates tmux UI colors from:
+
+```text
+~/.config/lazytmux/theme.lua
+```
+
+The default theme is your Dracula palette. Bundled alternatives live in
+`themes/` and can be listed with:
+
+```sh
+bin/lazytmux themes
+```
+
+To switch themes, copy one of the bundled files over your user theme:
+
+```sh
+cp themes/tokyonight.lua ~/.config/lazytmux/theme.lua
+```
+
+The active theme is available to `statusline.lua` as `LazyTmuxTheme.colors`, so
+statusline blocks can use theme names instead of repeating hex values.
 
 LazyTmux generates the tmux statusline from:
 
@@ -118,17 +146,17 @@ is similar to editing a Neovim statusline component:
 ```lua
 return {
   left = {
-    { fg = "#282A36", bg = "#BD93F9", attr = "bold", text = " #S " },
-    { fg = "#F8F8F2", bg = "#6272A4", text = " #H " },
+    { fg = LazyTmuxTheme.colors.BACKGROUND, bg = LazyTmuxTheme.colors.PURPLE, attr = "bold", text = " #S " },
+    { fg = LazyTmuxTheme.colors.FG, bg = LazyTmuxTheme.colors.COMMENT, text = " #H " },
   },
   right = {
-    { fg = "#F8F8F2", bg = "#6272A4", text = " %Y-%m-%d " },
+    { fg = LazyTmuxTheme.colors.FG, bg = LazyTmuxTheme.colors.COMMENT, text = " %Y-%m-%d " },
   },
 }
 ```
 
-LazyTmux auto-reloads when its tmux files, `plugins.lua`, or `statusline.lua`
-change.
+LazyTmux auto-reloads when its tmux files, `plugins.lua`, `theme.lua`, or
+`statusline.lua` change.
 
 ## Layout
 
@@ -139,5 +167,6 @@ config/options.tmux    defaults
 config/keymaps.tmux    key bindings
 plugins/default.lua    starter plugin spec
 lua/lazytmux/cli.lua   Lua plugin manager and viewer
+themes/default.lua     default Dracula theme
 statusline/default.lua default statusline block spec
 ```

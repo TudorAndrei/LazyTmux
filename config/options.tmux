@@ -38,7 +38,7 @@ setw -g clock-mode-colour "#BD93F9"
 set-option -g message-style "fg=#F8F8F2,bg=#44475A"
 set-option -g message-command-style "fg=#F8F8F2,bg=#44475A"
 
-set-environment -g TMUX_PLUGIN_MANAGER_PATH "#{E:LAZYTMUX_DATA}/plugins/"
+set-environment -gF TMUX_PLUGIN_MANAGER_PATH "#{E:LAZYTMUX_DATA}/plugins/"
 
 set-option -g @amux-status off
 set-option -g @amux-picker-key "l"
