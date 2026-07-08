@@ -116,12 +116,6 @@ Run all pre-commit checks with hk:
 mise exec -- hk check --all
 ```
 
-Run the Lua linter directly with:
-
-```sh
-scripts/lint-lua
-```
-
 Lua language-server hints live in `lua/lazytmux/types.lua`. User-facing config
 files reference those types with `---@type ...` annotations, which avoids
 duplicate type diagnostics when editing multiple config files at once.

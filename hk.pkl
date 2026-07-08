@@ -3,10 +3,7 @@ import "package://github.com/jdx/hk/releases/download/v1.50.0/hk@1.50.0#/Builtin
 
 local linters = new Mapping<String, Step> {
     ["stylua"] = Builtins.stylua
-    ["luacheck"] {
-        glob = "**/*.lua"
-        check = "scripts/lint-lua {{ files }}"
-    }
+    ["luacheck"] = Builtins.luacheck
 }
 
 hooks {

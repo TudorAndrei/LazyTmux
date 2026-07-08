@@ -1,4 +1,4 @@
 [tools]
 hk = "latest"
-lua = "latest"
+lua = "5.1"
 stylua = "latest"
