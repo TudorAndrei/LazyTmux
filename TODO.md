@@ -57,7 +57,7 @@
 - [x] Report the active Lua implementation/version from `M.doctor()`.
 - [x] Test tmux initialization with and without a Lua runtime on `PATH`.
 - [x] Confirm the missing-runtime path emits one actionable message and no secondary source errors.
-- [ ] Commit: `fix(bootstrap): enforce supported tmux and Lua runtimes`
+- [x] Commit: `fix(bootstrap): enforce supported tmux and Lua runtimes`
 
 ## Phase 6: Correct reload and key bindings
 
@@ -69,7 +69,7 @@
 - [x] Test reload from a starter-style home without `~/.tmux.conf`.
 - [x] Reconcile `README.md` and `starter/README.md` with final requirements and behavior.
 - [x] Run the full suite with Lua 5.1 and LuaJIT.
-- [ ] Commit: `fix(keymaps): make reload and resize bindings reliable`
+- [x] Commit: `fix(keymaps): make reload and resize bindings reliable`
 
 ## Verification
 
@@ -94,6 +94,6 @@
 
 - [x] Code reviewed with special attention to command classification and deletion containment.
 - [x] PLAN.md updated if the approach changes during implementation.
-- [ ] All phase commits are clean and use the exact drafted messages.
+- [x] All phase commits are clean and use the exact drafted messages.
 - [x] Every phase leaves lint and tests passing before the next phase begins.
-- [ ] TODO.md items are all checked off.
+- [x] TODO.md items are all checked off.

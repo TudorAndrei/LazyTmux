@@ -5,7 +5,7 @@ bind-key C-Space send-prefix
 unbind r
 bind-key r refresh-client
 
-bind-key R run-shell 'tmux source-file ~/.tmux.conf > /dev/null; tmux display-message "sourced ~/.tmux.conf"'
+bind-key R run-shell 'if tmux source-file "#{E:LAZYTMUX_ROOT}/lazytmux.tmux"; then tmux display-message "LazyTmux reloaded"; else tmux display-message "LazyTmux reload failed"; fi'
 bind-key P run-shell '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" popup'
 bind-key I run-shell -b '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" sync && "#{E:LAZYTMUX_ROOT}/bin/lazytmux" source'
 
@@ -26,8 +26,6 @@ bind-key -n 'C-h' if-shell "$is_vim" 'send-keys C-h' 'select-pane -L'
 bind-key -n 'C-j' if-shell "$is_vim" 'send-keys C-j' 'select-pane -D'
 bind-key -n 'C-k' if-shell "$is_vim" 'send-keys C-k' 'select-pane -U'
 bind-key -n 'C-l' if-shell "$is_vim" 'send-keys C-l' 'select-pane -R'
-
-bind-key L display-popup -E -d "#{pane_current_path}" "$HOME/.config/tmux/worktree-session-picker.sh"
 
 bind-key S run-shell 'tmux save-buffer - | tmux load-buffer -'
 bind-key C-s run-shell -b 'test -d "#{E:LAZYTMUX_DATA}/plugins/resurrect" && tmux display-message "Saving session..." && "#{E:LAZYTMUX_DATA}/plugins/resurrect/scripts/save.sh" || tmux display-message "Install plugins with prefix + I"'
