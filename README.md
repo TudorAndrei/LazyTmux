@@ -8,8 +8,10 @@ as Git repositories under `~/.local/share/lazytmux/plugins`.
 
 ## Requirements
 
-- tmux 3.2 or newer
+- tmux 3.5 or newer
 - git
+- Lua 5.1 or newer, or LuaJIT. Lua is intentionally required because your
+  plugin, theme, and statusline configuration are Lua files.
 - fzf, optional but recommended for the plugin viewer
 
 ## Install
@@ -93,17 +95,33 @@ return {
 - `enabled` controls whether the plugin syncs and loads.
 - `desc` is shown in the viewer.
 
+Plugin names must be unique safe directory basenames beginning with a letter or
+number; later characters may include `.`, `_`, and `-`. Bare `owner/repo`
+values expand to GitHub HTTPS URLs; HTTPS,
+SSH URI, and SCP-style Git remotes are used unchanged.
+
+`plugins.lua` is always user-owned source. `bin/lazytmux toggle <name>` and the
+viewer persist only effective-state differences in
+`~/.local/share/lazytmux/plugin-overrides`; toggling back to the declared value
+removes that entry instead of rewriting your Lua file.
+
 ## Commands
 
 ```sh
 bin/lazytmux list
 bin/lazytmux sync
+bin/lazytmux install
 bin/lazytmux update
 bin/lazytmux clean
+bin/lazytmux source
+bin/lazytmux toggle sensible
 bin/lazytmux themes
 bin/lazytmux theme
 bin/lazytmux statusline
 bin/lazytmux ui
+bin/lazytmux popup
+bin/lazytmux watch
+bin/lazytmux doctor
 ```
 
 Inside tmux, `bin/lazytmux popup` opens the UI in a centered tmux popup.
@@ -116,11 +134,15 @@ Run all pre-commit checks with hk:
 mise exec -- hk check --all
 ```
 
+Run the behavioral CLI and isolated-tmux suite with:
+
+```sh
+mise run test
+```
+
 Lua language-server hints live in `lua/lazytmux/types.lua`. User-facing config
 files reference those types with `---@type ...` annotations, which avoids
 duplicate type diagnostics when editing multiple config files at once.
-
-## Statusline
 
 ## Themes
 
@@ -145,6 +167,8 @@ cp themes/tokyonight.lua ~/.config/lazytmux/theme.lua
 
 The active theme is available to `statusline.lua` as `LazyTmuxTheme.colors`, so
 statusline blocks can use theme names instead of repeating hex values.
+
+## Statusline
 
 LazyTmux generates the tmux statusline from:
 
