@@ -2,6 +2,16 @@
 
 Starter configuration for [LazyTmux](https://github.com/TudorAndrei/LazyTmux).
 
+## Requirements
+
+- tmux 3.5 or newer
+- git
+- Lua 5.1 or newer, or LuaJIT
+
+Lua is required because LazyTmux evaluates Lua plugin, theme, and statusline
+configuration files. The starter displays one actionable message and stops
+before bootstrapping when it is unavailable.
+
 ## Install
 
 Back up any existing tmux config, then clone this starter:
@@ -26,6 +36,6 @@ User-editable LazyTmux files are copied to:
 
 ```text
 ~/.config/lazytmux/plugins.lua
+~/.config/lazytmux/theme.lua
 ~/.config/lazytmux/statusline.lua
 ```
-
