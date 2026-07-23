@@ -2,3 +2,6 @@
 hk = "latest"
 lua = "5.1"
 stylua = "latest"
+
+[tasks.test]
+run = "tests/run.sh"
