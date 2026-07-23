@@ -1,95 +1,114 @@
 local M = {}
 
 local unpack = rawget(table, "unpack") or rawget(_G, "unpack")
-
 local root = os.getenv("LAZYTMUX_ROOT") or debug.getinfo(1, "S").source:sub(2):match("^(.*)/lua/lazytmux/cli%.lua$")
-local home = os.getenv("HOME")
+local home = os.getenv("HOME") or ""
 local config_dir = os.getenv("LAZYTMUX_CONFIG") or (home .. "/.config/lazytmux")
 local data_dir = os.getenv("LAZYTMUX_DATA") or (home .. "/.local/share/lazytmux")
 local spec_file = os.getenv("LAZYTMUX_SPEC") or (config_dir .. "/plugins.lua")
 local theme_file = os.getenv("LAZYTMUX_THEME") or (config_dir .. "/theme.lua")
 local statusline_file = os.getenv("LAZYTMUX_STATUSLINE") or (config_dir .. "/statusline.lua")
 local plugin_dir = os.getenv("LAZYTMUX_PLUGIN_DIR") or (data_dir .. "/plugins")
+local override_file = data_dir .. "/plugin-overrides"
 
-local function q(s)
-  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+local function q(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+-- Lua 5.1/LuaJIT return a numeric status from os.execute, while newer Lua
+-- versions return (true|nil, "exit", code). io.popen():close has the same
+-- variation, so every external command goes through this one normalizer.
+local function command_succeeded(first, kind, code)
+  if first == true then
+    return true
+  end
+  if type(first) == "number" then
+    return first == 0
+  end
+  return first == nil and kind == "exit" and code == 0
 end
 
 local function run(...)
-  local parts = { ... }
-  local cmd = table.concat(parts, " ")
-  return os.execute(cmd)
+  return command_succeeded(os.execute(table.concat({ ... }, " ")))
 end
 
-local function capture(cmd)
-  local handle = io.popen(cmd)
-  if not handle then
-    return ""
+local function run_checked(label, ...)
+  if not run(...) then
+    error(label .. " failed")
   end
-  local out = handle:read("*a") or ""
-  handle:close()
-  return out:gsub("%s+$", "")
+end
+
+local function capture_optional(command)
+  local handle, err = io.popen(command)
+  if not handle then
+    return "", false, err
+  end
+  local output = handle:read("*a") or ""
+  local ok = command_succeeded(handle:close())
+  return output:gsub("%s+$", ""), ok
+end
+
+local function capture_checked(label, command)
+  local output, ok, err = capture_optional(command)
+  if not ok then
+    error(label .. " failed" .. (err and ": " .. err or ""))
+  end
+  return output
 end
 
 local function exists(path)
-  local f = io.open(path, "r")
-  if f then
-    f:close()
+  local file = io.open(path, "r")
+  if file then
+    file:close()
     return true
   end
   return false
 end
 
 local function is_dir(path)
-  return run("test -d", q(path)) == true or run("test -d", q(path)) == 0
+  return run("test -d", q(path))
 end
 
 local function mkdir(path)
-  run("mkdir -p", q(path))
+  run_checked("creating directory " .. path, "mkdir -p", q(path))
 end
 
 local function process_alive(pid)
-  return run("kill -0", q(pid), "2>/dev/null") == true or run("kill -0", q(pid), "2>/dev/null") == 0
+  return run("kill -0", q(pid), "2>/dev/null")
 end
 
-local function copy_default_spec()
+local function command_exists(name)
+  return run("command -v", q(name), ">/dev/null 2>&1")
+end
+
+local function ensure_user_files()
   mkdir(config_dir)
   mkdir(plugin_dir)
   if not exists(spec_file) then
-    run("cp", q(root .. "/plugins/default.lua"), q(spec_file))
+    run_checked("copying default plugin spec", "cp", q(root .. "/plugins/default.lua"), q(spec_file))
   end
   if not exists(theme_file) then
-    run("cp", q(root .. "/themes/default.lua"), q(theme_file))
+    run_checked("copying default theme", "cp", q(root .. "/themes/default.lua"), q(theme_file))
   end
   if not exists(statusline_file) then
-    run("cp", q(root .. "/statusline/default.lua"), q(statusline_file))
+    run_checked("copying default statusline", "cp", q(root .. "/statusline/default.lua"), q(statusline_file))
   end
 end
 
-local function usage()
-  print([[
-Usage: lazytmux <command>
+local function valid_plugin_name(name)
+  return type(name) == "string" and name:match("^[A-Za-z0-9][A-Za-z0-9._-]*$") ~= nil and name ~= "." and name ~= ".."
+end
 
-Commands:
-  list      Show plugin status
-  sync      Install missing enabled plugins and update installed ones
-  install   Install missing enabled plugins
-  update    Update installed enabled plugins
-  clean     Remove disabled plugins from the plugin directory
-  source    Source installed tmux plugins
-  ui        Open the plugin viewer in the current terminal
-  popup     Open the plugin viewer in a tmux popup
-  theme     Generate tmux theme styles from theme.lua
-  themes    List bundled themes
-  statusline
-            Generate the tmux statusline from statusline.lua
-  watch     Auto-reload LazyTmux when config files change
-  doctor    Check local requirements
-]])
+local function derive_name(repo)
+  local name = repo:match("([^/:]+)$")
+  if name then
+    name = name:gsub("%.git$", "")
+  end
+  return name
 end
 
 local function normalize_url(repo)
-  if repo:match("^https?://") or repo:match("^git@") then
+  if repo:match("^[%a][%w+.-]*://") or repo:match("^[^/@:%s]+@[^:%s]+:.+") then
     return repo
   end
   return "https://github.com/" .. repo .. ".git"
@@ -99,14 +118,106 @@ local function plugin_path(plugin)
   return plugin_dir .. "/" .. plugin.name
 end
 
-local function load_specs()
-  copy_default_spec()
+local function assert_plugin_path(plugin)
+  if not valid_plugin_name(plugin.name) then
+    error("unsafe plugin name: " .. tostring(plugin.name))
+  end
+  local path = plugin_path(plugin)
+  local prefix = plugin_dir .. "/"
+  if path:sub(1, #prefix) ~= prefix or path:sub(#prefix + 1) ~= plugin.name then
+    error("plugin path escapes plugin directory: " .. tostring(plugin.name))
+  end
+  return path
+end
 
+local function atomic_write(path, content)
+  local directory = path:match("^(.*)/[^/]+$")
+  if not directory then
+    error("output path must have a parent directory: " .. path)
+  end
+  mkdir(directory)
+
+  local pid = capture_optional("sh -c 'echo $PPID'")
+  local temporary = path .. ".tmp." .. (pid ~= "" and pid or "0") .. "." .. tostring(math.random(1, 2147483646))
+  local file, err = io.open(temporary, "wx")
+  if not file then
+    -- Lua 5.1 may not support x mode; the unique name still makes this safe.
+    file, err = io.open(temporary, "w")
+  end
+  if not file then
+    error("opening temporary output for " .. path .. " failed: " .. tostring(err))
+  end
+
+  local ok, write_err = file:write(content)
+  if not ok then
+    file:close()
+    os.remove(temporary)
+    error("writing temporary output for " .. path .. " failed: " .. tostring(write_err))
+  end
+  local closed, close_err = file:close()
+  if not closed then
+    os.remove(temporary)
+    error("closing temporary output for " .. path .. " failed: " .. tostring(close_err))
+  end
+  local renamed, rename_err = os.rename(temporary, path)
+  if not renamed then
+    os.remove(temporary)
+    error("publishing " .. path .. " failed: " .. tostring(rename_err))
+  end
+end
+
+local function load_overrides()
+  if not exists(override_file) then
+    return {}
+  end
+  local file, err = io.open(override_file, "r")
+  if not file then
+    error("reading plugin overrides failed: " .. tostring(err))
+  end
+  local overrides = {}
+  local line_number = 0
+  for line in file:lines() do
+    line_number = line_number + 1
+    local name, value = line:match("^([A-Za-z0-9][A-Za-z0-9._-]*)\t(true)$")
+    if not name then
+      name, value = line:match("^([A-Za-z0-9][A-Za-z0-9._-]*)\t(false)$")
+    end
+    if not name then
+      file:close()
+      error("invalid plugin override at line " .. line_number)
+    end
+    if overrides[name] ~= nil then
+      file:close()
+      error("duplicate plugin override: " .. name)
+    end
+    overrides[name] = value == "true"
+  end
+  file:close()
+  return overrides
+end
+
+local function save_overrides(overrides)
+  local names = {}
+  for name in pairs(overrides) do
+    names[#names + 1] = name
+  end
+  table.sort(names)
+  local lines = {}
+  for _, name in ipairs(names) do
+    if not valid_plugin_name(name) or type(overrides[name]) ~= "boolean" then
+      error("invalid plugin override: " .. tostring(name))
+    end
+    lines[#lines + 1] = name .. "\t" .. tostring(overrides[name])
+  end
+  atomic_write(override_file, table.concat(lines, "\n") .. (#lines > 0 and "\n" or ""))
+end
+
+local function load_specs()
+  ensure_user_files()
   local chunk, err = loadfile(spec_file)
   if not chunk then
     error(err)
   end
-
   local ok, specs = pcall(chunk)
   if not ok then
     error(specs)
@@ -115,33 +226,77 @@ local function load_specs()
     error(spec_file .. " must return a plugin table")
   end
 
-  for i, plugin in ipairs(specs) do
+  local names = {}
+  for index, plugin in ipairs(specs) do
     if type(plugin) ~= "table" then
-      error("plugin #" .. i .. " must be a table")
+      error("plugin #" .. index .. " must be a table")
     end
     plugin.repo = plugin[1] or plugin.repo
-    plugin.name = plugin.name or (plugin.repo and plugin.repo:match("/([^/]+)$"))
-    plugin.desc = plugin.desc or ""
+    if type(plugin.repo) ~= "string" or plugin.repo == "" then
+      error("plugin #" .. index .. " needs a repo")
+    end
+    plugin.name = plugin.name or derive_name(plugin.repo)
+    if not valid_plugin_name(plugin.name) then
+      error(
+        "plugin #" .. index .. " has unsafe name " .. tostring(plugin.name) .. "; use a single safe directory basename"
+      )
+    end
+    if names[plugin.name] then
+      error("duplicate plugin name: " .. plugin.name)
+    end
+    names[plugin.name] = true
     if plugin.enabled == nil then
       plugin.enabled = true
+    elseif type(plugin.enabled) ~= "boolean" then
+      error("plugin " .. plugin.name .. " enabled must be boolean")
     end
-    if not plugin.repo or not plugin.name then
-      error("plugin #" .. i .. " needs a repo and name")
+    plugin.declared_enabled = plugin.enabled
+    plugin.desc = plugin.desc or ""
+    if type(plugin.desc) ~= "string" then
+      error("plugin " .. plugin.name .. " desc must be a string")
     end
   end
 
-  return specs
+  local overrides = load_overrides()
+  for name in pairs(overrides) do
+    if not names[name] then
+      error("plugin override references unknown plugin: " .. name)
+    end
+  end
+  for _, plugin in ipairs(specs) do
+    if overrides[plugin.name] ~= nil then
+      plugin.enabled = overrides[plugin.name]
+    end
+  end
+  return specs, overrides
 end
 
 local function installed(plugin)
-  return is_dir(plugin_path(plugin) .. "/.git")
+  return is_dir(assert_plugin_path(plugin) .. "/.git")
 end
 
 local function status(plugin)
-  if installed(plugin) then
-    return "installed"
-  end
-  return "missing"
+  return installed(plugin) and "installed" or "missing"
+end
+
+local function usage()
+  print([[Usage: lazytmux <command>
+
+Commands:
+  list                  Show plugin status
+  sync                  Install missing enabled plugins and update installed ones
+  install               Install missing enabled plugins
+  update                Update installed enabled plugins
+  clean                 Remove disabled plugins from the plugin directory
+  source                Source installed tmux plugins
+  toggle <name>         Toggle a plugin without editing plugins.lua
+  ui                    Open the plugin viewer in the current terminal
+  popup                 Open the plugin viewer in a tmux popup
+  theme                 Generate tmux theme styles from theme.lua
+  themes                List bundled themes
+  statusline            Generate the tmux statusline from statusline.lua
+  watch                 Auto-reload LazyTmux when config files change
+  doctor                Check local requirements]])
 end
 
 function M.list()
@@ -163,12 +318,12 @@ end
 function M.install()
   for _, plugin in ipairs(load_specs()) do
     if plugin.enabled then
-      local path = plugin_path(plugin)
+      local path = assert_plugin_path(plugin)
       if installed(plugin) then
         print("ok      " .. plugin.name .. " already installed")
       else
         print("install " .. plugin.name)
-        run("git clone --depth 1", q(normalize_url(plugin.repo)), q(path))
+        run_checked("cloning plugin " .. plugin.name, "git clone --depth 1", q(normalize_url(plugin.repo)), q(path))
       end
     end
   end
@@ -177,10 +332,10 @@ end
 function M.update()
   for _, plugin in ipairs(load_specs()) do
     if plugin.enabled then
-      local path = plugin_path(plugin)
+      local path = assert_plugin_path(plugin)
       if installed(plugin) then
         print("update  " .. plugin.name)
-        run("git -C", q(path), "pull --ff-only")
+        run_checked("updating plugin " .. plugin.name, "git -C", q(path), "pull --ff-only")
       else
         print("skip    " .. plugin.name .. " is not installed")
       end
@@ -196,10 +351,10 @@ end
 function M.clean()
   for _, plugin in ipairs(load_specs()) do
     if not plugin.enabled then
-      local path = plugin_path(plugin)
+      local path = assert_plugin_path(plugin)
       if is_dir(path) then
         print("remove  " .. plugin.name)
-        run("rm -rf", q(path))
+        run_checked("removing plugin " .. plugin.name, "rm -rf", q(path))
       end
     end
   end
@@ -209,41 +364,69 @@ function M.source()
   if not os.getenv("TMUX") then
     return
   end
-
   for _, plugin in ipairs(load_specs()) do
-    if plugin.enabled and is_dir(plugin_path(plugin)) then
-      local entry =
-        capture("find " .. q(plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1")
+    if plugin.enabled and is_dir(assert_plugin_path(plugin)) then
+      local entry = capture_checked(
+        "finding tmux entrypoint for " .. plugin.name,
+        "find " .. q(assert_plugin_path(plugin)) .. " -maxdepth 2 -type f -name '*.tmux' | sort | head -n 1"
+      )
       if entry ~= "" then
-        run("tmux source-file", q(entry))
+        run_checked("sourcing plugin " .. plugin.name, "tmux source-file", q(entry))
       end
     end
   end
 end
 
-local function command_exists(name)
-  return run("command -v", q(name), ">/dev/null 2>&1") == true or run("command -v", q(name), ">/dev/null 2>&1") == 0
+function M.toggle(name)
+  if not valid_plugin_name(name) then
+    error("toggle requires one known plugin name")
+  end
+  local specs, overrides = load_specs()
+  local selected
+  for _, plugin in ipairs(specs) do
+    if plugin.name == name then
+      selected = plugin
+      break
+    end
+  end
+  if not selected then
+    error("unknown plugin: " .. name)
+  end
+  local next_enabled = not selected.enabled
+  if next_enabled == selected.declared_enabled then
+    overrides[name] = nil
+  else
+    overrides[name] = next_enabled
+  end
+  save_overrides(overrides)
+  print(string.format("%s %s", next_enabled and "enabled" or "disabled", name))
 end
 
 function M.doctor()
   local failed = false
-  for _, cmd in ipairs({ "tmux", "git" }) do
-    if command_exists(cmd) then
-      print("ok      " .. cmd)
+  for _, command in ipairs({ "tmux", "git" }) do
+    if command_exists(command) then
+      print("ok      " .. command)
     else
-      print("missing " .. cmd)
+      print("missing " .. command)
       failed = true
     end
   end
-
+  local lua = command_exists("luajit") and "luajit" or (command_exists("lua") and "lua" or nil)
+  if lua then
+    local version = capture_checked("checking " .. lua .. " version", lua .. " -v 2>&1")
+    print("ok      " .. lua .. " " .. version)
+  else
+    print("missing lua or luajit")
+    failed = true
+  end
   if command_exists("fzf") then
     print("ok      fzf")
   else
     print("optional fzf, needed for the richer plugin viewer")
   end
-
   if failed then
-    os.exit(1)
+    error("required dependencies are missing")
   end
 end
 
@@ -256,43 +439,10 @@ local function render_rows()
   return rows
 end
 
-local function toggle_plugin(name)
-  local f = assert(io.open(spec_file, "r"))
-  local lines = {}
-  local in_target = false
-  for line in f:lines() do
-    if line:find('name%s*=%s*"' .. name:gsub("%-", "%%-") .. '"') then
-      in_target = true
-    end
-    if in_target and line:find("enabled%s*=") then
-      if line:find("enabled%s*=%s*true") then
-        line = line:gsub("enabled%s*=%s*true", "enabled = false")
-      elseif line:find("enabled%s*=%s*false") then
-        line = line:gsub("enabled%s*=%s*false", "enabled = true")
-      end
-      in_target = false
-    end
-    if in_target and line:find("^%s*},?%s*$") then
-      in_target = false
-    end
-    lines[#lines + 1] = line
-  end
-  f:close()
-
-  f = assert(io.open(spec_file, "w"))
-  f:write(table.concat(lines, "\n"))
-  f:write("\n")
-  f:close()
-end
-
 local function fzf_ui()
   while true do
     local list_file = os.tmpname()
-    local f = assert(io.open(list_file, "w"))
-    f:write(table.concat(render_rows(), "\n"))
-    f:write("\n")
-    f:close()
-
+    atomic_write(list_file, table.concat(render_rows(), "\n") .. "\n")
     local preview = table.concat({
       "name=$(awk '{print $3}' <<< {});",
       "path=" .. q(plugin_dir) .. "/$name;",
@@ -304,7 +454,7 @@ local function fzf_ui()
       'printf "Not installed\\n";',
       "fi",
     }, " ")
-    local fzf_cmd = table.concat({
+    local output = capture_optional(table.concat({
       "fzf",
       "--ansi",
       "--height=100%",
@@ -317,24 +467,19 @@ local function fzf_ui()
       "--preview=" .. q(preview),
       "--preview-window=down,35%,wrap",
       "< " .. q(list_file),
-    }, " ")
-
-    local output = capture(fzf_cmd)
+    }, " "))
     os.remove(list_file)
     if output == "" then
       return
     end
-
     local lines = {}
     for line in output:gmatch("[^\n]+") do
       lines[#lines + 1] = line
     end
-    local key = lines[1]
-    local selected = lines[2] or ""
+    local key, selected = lines[1], lines[2] or ""
     local name = selected:match("^%S+%s+%S+%s+(%S+)")
-
     if key == "enter" and name then
-      toggle_plugin(name)
+      M.toggle(name)
     elseif key == "ctrl-i" then
       M.install()
     elseif key == "ctrl-u" then
@@ -345,7 +490,7 @@ local function fzf_ui()
     elseif key == "ctrl-r" then
       M.source()
     elseif key == "ctrl-e" then
-      run(q(os.getenv("EDITOR") or "vi"), q(spec_file))
+      run_checked("launching editor", q(os.getenv("EDITOR") or "vi"), q(spec_file))
     else
       return
     end
@@ -354,7 +499,7 @@ end
 
 local function plain_ui()
   while true do
-    run("clear")
+    run_checked("clearing terminal", "clear")
     print("LazyTmux plugins\n")
     M.list()
     io.write("\n[i] install  [u] update  [s] sync  [r] source  [e] edit  [q] quit\n> ")
@@ -369,7 +514,7 @@ local function plain_ui()
     elseif choice == "r" then
       M.source()
     elseif choice == "e" then
-      run(q(os.getenv("EDITOR") or "vi"), q(spec_file))
+      run_checked("launching editor", q(os.getenv("EDITOR") or "vi"), q(spec_file))
     elseif choice == "q" then
       return
     end
@@ -388,10 +533,14 @@ end
 
 function M.popup()
   if not os.getenv("TMUX") then
-    M.ui()
-    return
+    return M.ui()
   end
-  run("tmux display-popup -E -w 86% -h 82% -T", q(" LazyTmux "), q(root .. "/bin/lazytmux ui"))
+  run_checked(
+    "opening tmux popup",
+    "tmux display-popup -E -w 86% -h 82% -T",
+    q(" LazyTmux "),
+    q(root .. "/bin/lazytmux ui")
+  )
 end
 
 local function load_lua_table(path, label)
@@ -399,7 +548,6 @@ local function load_lua_table(path, label)
   if not chunk then
     error(err)
   end
-
   local ok, spec = pcall(chunk)
   if not ok then
     error(spec)
@@ -411,57 +559,52 @@ local function load_lua_table(path, label)
 end
 
 local function load_theme()
-  copy_default_spec()
+  ensure_user_files()
   local theme = load_lua_table(theme_file, "theme")
-  theme.colors = theme.colors or {}
-  theme.styles = theme.styles or {}
+  theme.colors, theme.styles = theme.colors or {}, theme.styles or {}
+  if type(theme.colors) ~= "table" or type(theme.styles) ~= "table" then
+    error("theme colors and styles must be tables")
+  end
   return theme
+end
+
+local function optional_string(value, label)
+  if value ~= nil and type(value) ~= "string" then
+    error(label .. " must be a string")
+  end
+  return value
 end
 
 function M.theme()
   local theme = load_theme()
-  local styles = theme.styles
-  mkdir(data_dir)
-
-  local output = data_dir .. "/theme.tmux"
-  local f = assert(io.open(output, "w"))
-  f:write("# Generated from ", theme_file, "\n")
-
-  if styles.status then
-    f:write("set-option -g status-style ", q(styles.status), "\n")
+  local styles, lines = theme.styles, { "# Generated from " .. theme_file }
+  local settings = {
+    { "status", "set-option -g status-style " },
+    { "pane_border", "set-option -g pane-border-style " },
+    { "pane_active_border", "set-option -g pane-active-border-style " },
+    { "display_panes", "set-option -g display-panes-colour " },
+    { "display_panes_active", "set-option -g display-panes-active-colour " },
+    { "clock", "set-window-option -g clock-mode-colour " },
+    { "message", "set-option -g message-style " },
+    { "message_command", "set-option -g message-command-style " },
+    { "mode", "set-option -g mode-style " },
+  }
+  for _, setting in ipairs(settings) do
+    local value = optional_string(styles[setting[1]], "theme style " .. setting[1])
+    if value then
+      lines[#lines + 1] = setting[2] .. q(value)
+    end
   end
-  if styles.pane_border then
-    f:write("set-option -g pane-border-style ", q(styles.pane_border), "\n")
-  end
-  if styles.pane_active_border then
-    f:write("set-option -g pane-active-border-style ", q(styles.pane_active_border), "\n")
-  end
-  if styles.display_panes then
-    f:write("set-option -g display-panes-colour ", q(styles.display_panes), "\n")
-  end
-  if styles.display_panes_active then
-    f:write("set-option -g display-panes-active-colour ", q(styles.display_panes_active), "\n")
-  end
-  if styles.clock then
-    f:write("set-window-option -g clock-mode-colour ", q(styles.clock), "\n")
-  end
-  if styles.message then
-    f:write("set-option -g message-style ", q(styles.message), "\n")
-  end
-  if styles.message_command then
-    f:write("set-option -g message-command-style ", q(styles.message_command), "\n")
-  end
-  if styles.mode then
-    f:write("set-option -g mode-style ", q(styles.mode), "\n")
-  end
-
-  f:close()
+  atomic_write(data_dir .. "/theme.tmux", table.concat(lines, "\n") .. "\n")
 end
 
 function M.themes()
   print("Bundled themes:")
-  local out = capture("find " .. q(root .. "/themes") .. " -maxdepth 1 -type f -name '*.lua' | sort")
-  for file in out:gmatch("[^\n]+") do
+  local output = capture_checked(
+    "listing bundled themes",
+    "find " .. q(root .. "/themes") .. " -maxdepth 1 -type f -name '*.lua' | sort"
+  )
+  for file in output:gmatch("[^\n]+") do
     local name = file:match("([^/]+)%.lua$")
     if name ~= "default" then
       print("  " .. name)
@@ -471,61 +614,67 @@ function M.themes()
 end
 
 local function load_statusline()
-  copy_default_spec()
   _G.LazyTmuxTheme = load_theme()
-  local spec = load_lua_table(statusline_file, "statusline")
-  return spec
+  return load_lua_table(statusline_file, "statusline")
 end
 
 local function style(block)
-  local attrs = {}
-  attrs[#attrs + 1] = "fg=" .. assert(block.fg, "statusline block missing fg")
-  attrs[#attrs + 1] = "bg=" .. assert(block.bg, "statusline block missing bg")
-  if block.attr and block.attr ~= "" then
-    attrs[#attrs + 1] = block.attr
+  if type(block) ~= "table" then
+    error("statusline block must be a table")
   end
-  return "#[" .. table.concat(attrs, ",") .. "]" .. (block.text or "")
+  local fg, bg = optional_string(block.fg, "statusline block fg"), optional_string(block.bg, "statusline block bg")
+  if not fg or not bg then
+    error("statusline block missing fg or bg")
+  end
+  local attr, text =
+    optional_string(block.attr, "statusline block attr"), optional_string(block.text, "statusline block text")
+  local attrs = { "fg=" .. fg, "bg=" .. bg }
+  if attr and attr ~= "" then
+    attrs[#attrs + 1] = attr
+  end
+  return "#[" .. table.concat(attrs, ",") .. "]" .. (text or "")
 end
 
 local function render_blocks(blocks)
-  local out = {}
-  for _, block in ipairs(blocks or {}) do
-    out[#out + 1] = style(block)
+  if blocks == nil then
+    return ""
   end
-  return table.concat(out, "")
+  if type(blocks) ~= "table" then
+    error("statusline blocks must be a table")
+  end
+  local output = {}
+  for _, block in ipairs(blocks) do
+    output[#output + 1] = style(block)
+  end
+  return table.concat(output, "")
 end
 
 function M.statusline()
-  local spec = load_statusline()
-  mkdir(data_dir)
-
-  local output = data_dir .. "/statusline.tmux"
-  local f = assert(io.open(output, "w"))
-
-  if spec.window then
-    if spec.window.normal then
-      f:write("set-window-option -g window-status-format ", q(style(spec.window.normal)), "\n")
-    end
-    if spec.window.current then
-      f:write("set-window-option -g window-status-current-format ", q(style(spec.window.current)), "\n")
-    end
+  local spec, lines = load_statusline(), {}
+  if spec.window ~= nil and type(spec.window) ~= "table" then
+    error("statusline window must be a table")
   end
-
-  f:write("set-option -g status-left ", q(render_blocks(spec.left)), "\n")
-  f:write("set-option -g status-right ", q(render_blocks(spec.right)), "\n")
-  f:close()
+  if spec.window and spec.window.normal then
+    lines[#lines + 1] = "set-window-option -g window-status-format " .. q(style(spec.window.normal))
+  end
+  if spec.window and spec.window.current then
+    lines[#lines + 1] = "set-window-option -g window-status-current-format " .. q(style(spec.window.current))
+  end
+  lines[#lines + 1] = "set-option -g status-left " .. q(render_blocks(spec.left))
+  lines[#lines + 1] = "set-option -g status-right " .. q(render_blocks(spec.right))
+  atomic_write(data_dir .. "/statusline.tmux", table.concat(lines, "\n") .. "\n")
 end
 
 local function mtime(path)
   if not exists(path) then
     return "-"
   end
-  local mac = capture("stat -f %m " .. q(path) .. " 2>/dev/null")
-  if mac ~= "" then
+  local mac, mac_ok = capture_optional("stat -f %m " .. q(path) .. " 2>/dev/null")
+  if mac_ok and mac ~= "" then
     return mac
   end
-  local linux = capture("stat -c %Y " .. q(path) .. " 2>/dev/null")
-  if linux ~= "" then
+  local linux, linux_ok = capture_optional("stat -c %Y " .. q(path) .. " 2>/dev/null")
+  if linux_ok and linux ~= "" then
     return linux
   end
   return "-"
@@ -549,44 +698,34 @@ local function watch_signature()
 end
 
 function M.watch(server_pid)
-  copy_default_spec()
+  ensure_user_files()
   mkdir(data_dir)
-
   local lock = data_dir .. "/watch.pid"
   if exists(lock) then
-    local f = io.open(lock, "r")
-    local pid = f and f:read("*l")
-    if f then
-      f:close()
+    local file = io.open(lock, "r")
+    local pid = file and file:read("*l")
+    if file then
+      file:close()
     end
     if pid and pid ~= "" and process_alive(pid) then
       return
     end
   end
-
-  local pid = capture("sh -c 'echo $PPID'")
-  local f = assert(io.open(lock, "w"))
-  f:write(pid)
-  f:write("\n")
-  f:close()
-
+  atomic_write(lock, capture_checked("finding watcher process", "sh -c 'echo $PPID'") .. "\n")
   local last = watch_signature()
   while true do
-    run("sleep 1")
-    if server_pid and server_pid ~= "" then
-      if not process_alive(server_pid) then
-        os.remove(lock)
-        return
-      end
+    run_checked("waiting for configuration change", "sleep 1")
+    if server_pid and server_pid ~= "" and not process_alive(server_pid) then
+      os.remove(lock)
+      return
     end
-
     local current = watch_signature()
     if current ~= last then
       last = current
       M.theme()
       M.statusline()
-      run("tmux source-file", q(root .. "/lazytmux.tmux"))
-      run("tmux display-message", q("LazyTmux auto-reloaded"))
+      run_checked("reloading LazyTmux", "tmux source-file", q(root .. "/lazytmux.tmux"))
+      run_checked("displaying reload message", "tmux display-message", q("LazyTmux auto-reloaded"))
     end
   end
 end
@@ -598,6 +737,7 @@ local commands = {
   update = M.update,
   clean = M.clean,
   source = M.source,
+  toggle = M.toggle,
   ui = M.ui,
   popup = M.popup,
   theme = M.theme,
@@ -606,17 +746,17 @@ local commands = {
   watch = M.watch,
   doctor = M.doctor,
 }
-
 local command = arg[1]
 if not command or command == "-h" or command == "--help" or command == "help" then
   usage()
   os.exit(0)
 end
-
 if not commands[command] then
   io.stderr:write("Unknown command: " .. command .. "\n\n")
   usage()
   os.exit(2)
 end
-
+if command == "toggle" and (not arg[2] or arg[3]) then
+  error("toggle requires exactly one plugin name")
+end
 commands[command](unpack(arg, 2))
