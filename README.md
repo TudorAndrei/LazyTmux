@@ -128,10 +128,10 @@ Inside tmux, `bin/lazytmux popup` opens the UI in a centered tmux popup.
 
 ## Development
 
-Run all pre-commit checks with hk:
+Install the pinned Lua linter and run all pre-commit checks with Mise:
 
 ```sh
-mise exec -- hk check --all
+mise run lint
 ```
 
 Run the behavioral CLI and isolated-tmux suite with:

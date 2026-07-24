@@ -27,6 +27,6 @@ jobs:
           echo "$RUNNER_TOOL_CACHE/tmux-3.7b/bin" >> "$GITHUB_PATH"
           "$RUNNER_TOOL_CACHE/tmux-3.7b/bin/tmux" -V
       - name: Lint
-        run: mise exec -- hk check --all
+        run: mise run lint
       - name: Behavioral tests
         run: mise run test

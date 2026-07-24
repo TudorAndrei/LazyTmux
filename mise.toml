@@ -5,3 +5,12 @@ stylua = "latest"
 
 [tasks.test]
 run = "tests/run.sh"
+
+[tasks.install-linters]
+description = "Install pinned Lua lint dependencies"
+run = "luarocks install luacheck 1.2.0-1"
+
+[tasks.lint]
+description = "Run Lua formatting and lint checks"
+depends = ["install-linters"]
+run = "hk check --all"
