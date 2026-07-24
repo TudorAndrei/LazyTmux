@@ -43,8 +43,9 @@ Lua remains a required dependency. `README.md` and `starter/README.md` will
 state that requirement explicitly, while `starter/.tmux.conf` and
 `lazytmux.tmux` will provide an early actionable message when neither `lua` nor
 `luajit` is available. Because `extended-keys-format` is intentional,
-`README.md` will raise the supported tmux version from 3.2 to 3.5 rather than
-removing that option.
+`README.md` will raise the supported tmux version from 3.2 to 3.7b rather than
+removing that option. LazyTmux follows the maintainer's currently installed
+tmux release forward rather than maintaining older-version compatibility.
 
 `prefix + R` will source `LAZYTMUX_ROOT/lazytmux.tmux`, matching its documented
 purpose of reloading LazyTmux regardless of where the parent tmux configuration
@@ -86,8 +87,8 @@ The following are explicitly out of scope:
   bindings, and terminate the server even when an assertion fails.
 - Add `tests/run.sh` as the single local test entrypoint and a `test` task to
   `mise.toml`.
-- Add `.github/workflows/ci.yml` to install the repository's mise tools and
-  tmux, run `mise exec -- hk check --all`, and run the new test task.
+- Add `.github/workflows/ci.yml` to install the repository's mise tools, build
+  tmux 3.7b, run `mise exec -- hk check --all`, and run the new test task.
 - Document the local test command in the Development section of `README.md`.
 
   **Commit:** `test: add CLI and tmux integration coverage`
@@ -161,7 +162,7 @@ The following are explicitly out of scope:
 
 ### Phase 5: Make runtime requirements explicit
 
-- Raise the documented minimum to tmux 3.5 in `README.md` because
+- Raise the documented minimum to tmux 3.7b in `README.md` because
   `config/options.tmux` intentionally uses `extended-keys-format`.
 - Document Lua 5.1 or newer, or LuaJIT, as a required part of the LazyVim-style
   configuration model in `README.md` and `starter/README.md`.
@@ -197,6 +198,16 @@ The following are explicitly out of scope:
 
   **Commit:** `fix(keymaps): make reload and resize bindings reliable`
 
+### Phase 7: Align the maintained tmux baseline
+
+- Change the documented LazyTmux and starter requirement to tmux 3.7b or newer.
+- Build tmux 3.7b in GitHub Actions before running the isolated tmux suite so
+  CI enforces the same baseline as the documentation.
+- Run the behavioral suite with tmux 3.7b and record that evidence in
+  `TODO.md`.
+
+  **Commit:** `chore(compat): align tmux baseline with 3.7b`
+
 ## Risks & Tradeoffs
 
 - Lua 5.1 and newer Lua releases expose different process-status APIs. The
@@ -215,17 +226,16 @@ The following are explicitly out of scope:
 - Atomic rename is reliable only when the temporary file is created beside the
   destination. The helper must not use a system temporary directory that may be
   on another filesystem.
-- Raising the tmux floor to 3.5 drops the currently advertised 3.2–3.4 support.
-  Keeping `extended-keys-format` and a clear version contract is preferable to
-  silently loading a partially valid configuration.
+- Raising the tmux floor to 3.7b drops compatibility with older releases.
+  Keeping a clear current-version-forward contract is preferable to silently
+  loading a partially valid configuration.
 - tmux configuration conditionals and command blocks are smoke-tested against
-  the installed local tmux (currently 3.7b). The documented 3.5 minimum remains
-  a compatibility contract, but this plan does not download or build another
-  tmux version solely for verification.
+  tmux 3.7b locally and in CI. Newer tmux versions remain supported unless a
+  breaking upstream change requires a new documented floor.
 - The CI workflow introduces network-dependent tool installation. Local
   `tests/run.sh` must remain usable with already-installed Lua, git, and tmux.
 
 ## Open Questions
 
-- None blocking. Lua is intentionally required, the tmux minimum will be raised
-  to 3.5, and the two roadmap suggestions from the audit remain out of scope.
+- None blocking. Lua is intentionally required, the tmux minimum is 3.7b, and
+  the two roadmap suggestions from the audit remain out of scope.

@@ -10,8 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install --yes tmux
+      - name: Build tmux 3.7b
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bison build-essential curl libevent-dev libncurses-dev pkg-config
+          curl -L --fail --output /tmp/tmux-3.7b.tar.gz https://github.com/tmux/tmux/releases/download/3.7b/tmux-3.7b.tar.gz
+          tar -xzf /tmp/tmux-3.7b.tar.gz -C /tmp
+          cd /tmp/tmux-3.7b
+          ./configure --prefix="$RUNNER_TOOL_CACHE/tmux-3.7b"
+          make -j2
+          make install
+          echo "$RUNNER_TOOL_CACHE/tmux-3.7b/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TOOL_CACHE/tmux-3.7b/bin/tmux" -V
       - name: Lint
         run: mise exec -- hk check --all
       - name: Behavioral tests

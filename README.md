@@ -8,7 +8,7 @@ as Git repositories under `~/.local/share/lazytmux/plugins`.
 
 ## Requirements
 
-- tmux 3.5 or newer
+- tmux 3.7b or newer
 - git
 - Lua 5.1 or newer, or LuaJIT. Lua is intentionally required because your
   plugin, theme, and statusline configuration are Lua files.

@@ -4,7 +4,7 @@ Starter configuration for [LazyTmux](https://github.com/TudorAndrei/LazyTmux).
 
 ## Requirements
 
-- tmux 3.5 or newer
+- tmux 3.7b or newer
 - git
 - Lua 5.1 or newer, or LuaJIT
 

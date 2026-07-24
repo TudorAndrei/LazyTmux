@@ -7,7 +7,7 @@
 - [x] Add isolated entrypoint and keymap coverage in `tests/tmux.sh`.
 - [x] Add the single test entrypoint `tests/run.sh`.
 - [x] Add the `test` task to `mise.toml`.
-- [x] Add `.github/workflows/ci.yml` for hk and behavioral tests.
+- [x] Add `.github/workflows/ci.yml` for hk and behavioral tests on tmux 3.7b.
 - [x] Document the test command in `README.md`.
 - [x] Commit: `test: add CLI and tmux integration coverage`
 
@@ -50,7 +50,7 @@
 
 ## Phase 5: Make runtime requirements explicit
 
-- [x] Raise the documented tmux minimum from 3.2 to 3.5.
+- [x] Raise the documented tmux minimum from 3.2 to 3.7b.
 - [x] Document Lua 5.1+ or LuaJIT as an intentional required runtime.
 - [x] Add an early Lua preflight around initialization in `lazytmux.tmux`.
 - [x] Add an early Lua preflight to `starter/.tmux.conf`.
@@ -71,6 +71,13 @@
 - [x] Run the full suite with Lua 5.1 and LuaJIT.
 - [x] Commit: `fix(keymaps): make reload and resize bindings reliable`
 
+## Phase 7: Align the maintained tmux baseline
+
+- [x] Update LazyTmux and starter requirements to tmux 3.7b or newer.
+- [x] Build tmux 3.7b in GitHub Actions before lint and behavioral tests.
+- [x] Run the behavioral suite with tmux 3.7b.
+- [x] Commit: `chore(compat): align tmux baseline with 3.7b`
+
 ## Verification
 
 - [x] `mise exec -- hk check --all` passes with zero formatting or luacheck errors.
@@ -84,7 +91,7 @@
 - [x] Isolated tmux tests prove first load creates config and generated files with Lua available.
 - [x] Isolated tmux tests prove missing Lua stops initialization with one clear prerequisite message.
 - [x] Compatibility checks run with Lua 5.1 and LuaJIT.
-- [x] The tmux configuration syntax is smoke-tested with the installed tmux (3.7b); no additional tmux version is downloaded or built for verification.
+- [x] The tmux configuration syntax and behavioral suite are smoke-tested with tmux 3.7b.
 - [x] Effective keymaps contain one `prefix + L` resize binding and working `P`, `I`, and `R` bindings.
 - [x] Manual smoke test: start from an empty temporary home, source `starter/.tmux.conf`, run `doctor`, sync one local fixture plugin, toggle it twice, generate theme/statusline files, reload with `prefix + R`, and clean the disabled fixture.
 - [x] Edge cases tested: spaces in filesystem roots, single quotes in filesystem roots, missing optional fzf, malformed specs, duplicate plugin names, failed Git operations, malformed status blocks, and interrupted output replacement.
