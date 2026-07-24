@@ -1,6 +1,7 @@
 [tools]
 hk = "latest"
 lua = "5.1"
+luajit = "2.1.1744318430"
 stylua = "latest"
 
 [tasks.test]
