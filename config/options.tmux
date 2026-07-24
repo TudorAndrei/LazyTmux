@@ -23,7 +23,7 @@ set-option -ga terminal-features "*:hyperlinks"
 
 set-option -g status-interval 5
 set-option -g status on
-set-option -g status-position top
+set-option -g status-position bottom
 set-option -g status-justify absolute-centre
 set-option -g status-left-length 80
 set-option -g status-right-length 80

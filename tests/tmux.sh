@@ -22,6 +22,7 @@ TMUX= LAZYTMUX_NO_WATCH=1 HOME="$tmux_home" tmux -L "$server" -f /dev/null new-s
 TMUX= HOME="$tmux_home" tmux -L "$server" source-file "$REPO_ROOT/lazytmux.tmux"
 assert_file "$tmux_home/.local/share/lazytmux/theme.tmux"
 assert_file "$tmux_home/.local/share/lazytmux/statusline.tmux"
+assert_equal "bottom" "$(TMUX= tmux -L "$server" show-option -gv status-position)"
 bindings=$(TMUX= tmux -L "$server" list-keys -T prefix | tr -s '[:space:]' ' ')
 assert_contains "$bindings" '-T prefix P '
 assert_contains "$bindings" '-T prefix I '
