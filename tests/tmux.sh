@@ -25,6 +25,7 @@ assert_file "$tmux_home/.local/share/lazytmux/statusline.tmux"
 assert_equal "bottom" "$(TMUX= tmux -L "$server" show-option -gv status-position)"
 bindings=$(TMUX= tmux -L "$server" list-keys -T prefix | tr -s '[:space:]' ' ')
 assert_contains "$bindings" '-T prefix P '
+assert_contains "$bindings" '-T prefix T '
 assert_contains "$bindings" '-T prefix I '
 assert_contains "$bindings" '-T prefix R '
 assert_contains "$bindings" '-T prefix L resize-pane -R 5'

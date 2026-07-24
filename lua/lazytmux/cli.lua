@@ -292,8 +292,10 @@ Commands:
   toggle <name>         Toggle a plugin without editing plugins.lua
   ui                    Open the plugin viewer in the current terminal
   popup                 Open the plugin viewer in a tmux popup
-  theme                 Generate tmux theme styles from theme.lua
+  theme [name]          Generate styles or apply a bundled theme
   themes                List bundled themes
+  theme-picker          Choose and apply a bundled theme
+  theme-popup           Open the theme picker in a tmux popup
   statusline            Generate the tmux statusline from statusline.lua
   watch                 Auto-reload LazyTmux when config files change
   doctor                Check local requirements]])
@@ -575,7 +577,10 @@ local function optional_string(value, label)
   return value
 end
 
-function M.theme()
+function M.theme(name)
+  if name then
+    return M.apply_theme(name)
+  end
   local theme = load_theme()
   local styles, lines = theme.styles, { "# Generated from " .. theme_file }
   local settings = {
@@ -606,11 +611,105 @@ function M.themes()
   )
   for file in output:gmatch("[^\n]+") do
     local name = file:match("([^/]+)%.lua$")
-    if name ~= "default" then
-      print("  " .. name)
-    end
+    print("  " .. name)
   end
-  print("\nUse one by copying it to " .. theme_file)
+  print("\nApply one with: lazytmux theme <name>")
+end
+
+local function bundled_theme_path(name)
+  if type(name) ~= "string" or not name:match("^[A-Za-z0-9][A-Za-z0-9._-]*$") then
+    error("theme name must be a safe bundled theme name")
+  end
+  local path = root .. "/themes/" .. name .. ".lua"
+  if not exists(path) then
+    error("unknown bundled theme: " .. name)
+  end
+  return path
+end
+
+local function bundled_theme_names()
+  local output = capture_checked(
+    "listing bundled themes",
+    "find " .. q(root .. "/themes") .. " -maxdepth 1 -type f -name '*.lua' | sort"
+  )
+  local names = {}
+  for file in output:gmatch("[^\n]+") do
+    names[#names + 1] = file:match("([^/]+)%.lua$")
+  end
+  return names
+end
+
+local function read_file(path)
+  local file, err = io.open(path, "r")
+  if not file then
+    error("reading bundled theme failed: " .. tostring(err))
+  end
+  local content = file:read("*a")
+  file:close()
+  return content
+end
+
+function M.apply_theme(name)
+  local source = bundled_theme_path(name)
+  atomic_write(theme_file, read_file(source))
+  M.theme()
+  M.statusline()
+  if os.getenv("TMUX") then
+    run_checked("applying theme", "tmux source-file", q(data_dir .. "/theme.tmux"))
+    run_checked("applying statusline", "tmux source-file", q(data_dir .. "/statusline.tmux"))
+  end
+  print("applied theme " .. name)
+end
+
+function M.theme_picker()
+  local names = bundled_theme_names()
+  if command_exists("fzf") then
+    local list_file = os.tmpname()
+    atomic_write(list_file, table.concat(names, "\n") .. "\n")
+    local output = capture_optional(table.concat({
+      "fzf",
+      "--height=100%",
+      "--border=rounded",
+      "--layout=reverse",
+      "--prompt='LazyTmux themes > '",
+      "--header=" .. q("enter: apply theme  esc: cancel"),
+      "--preview=" .. q("sed -n '1,160p' " .. root .. "/themes/{}.lua"),
+      "--preview-window=right,60%,wrap",
+      "< " .. q(list_file),
+    }, " "))
+    os.remove(list_file)
+    if output ~= "" then
+      M.apply_theme(output:match("^[^\n]+"))
+    end
+    return
+  end
+
+  print("LazyTmux themes\n")
+  for index, name in ipairs(names) do
+    print(string.format("  %d. %s", index, name))
+  end
+  io.write("\nChoose a theme number, or q to cancel: ")
+  local choice = io.read("*l") or "q"
+  if choice == "q" then
+    return
+  end
+  local index = tonumber(choice)
+  if not index or index % 1 ~= 0 or not names[index] then
+    error("theme selection must be one of the listed numbers")
+  end
+  M.apply_theme(names[index])
+end
+
+function M.theme_popup()
+  if not os.getenv("TMUX") then
+    return M.theme_picker()
+  end
+  run_checked(
+    "opening theme picker",
+    "tmux display-popup -E -w 70% -h 70% -T",
+    q(" LazyTmux themes "),
+    q(root .. "/bin/lazytmux theme-picker")
+  )
 end
 
 local function load_statusline()
@@ -742,6 +841,8 @@ local commands = {
   popup = M.popup,
   theme = M.theme,
   themes = M.themes,
+  ["theme-picker"] = M.theme_picker,
+  ["theme-popup"] = M.theme_popup,
   statusline = M.statusline,
   watch = M.watch,
   doctor = M.doctor,
@@ -758,5 +859,11 @@ if not commands[command] then
 end
 if command == "toggle" and (not arg[2] or arg[3]) then
   error("toggle requires exactly one plugin name")
+end
+if command == "theme" and arg[3] then
+  error("theme accepts at most one bundled theme name")
+end
+if (command == "theme-picker" or command == "theme-popup") and arg[2] then
+  error(command .. " does not accept arguments")
 end
 commands[command](unpack(arg, 2))

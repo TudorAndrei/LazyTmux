@@ -7,6 +7,7 @@ bind-key r refresh-client
 
 bind-key R run-shell 'if tmux source-file "#{E:LAZYTMUX_ROOT}/lazytmux.tmux"; then tmux display-message "LazyTmux reloaded"; else tmux display-message "LazyTmux reload failed"; fi'
 bind-key P run-shell '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" popup'
+bind-key T run-shell '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" theme-popup'
 bind-key I run-shell -b '"#{E:LAZYTMUX_ROOT}/bin/lazytmux" sync && "#{E:LAZYTMUX_ROOT}/bin/lazytmux" source'
 
 unbind '"'

@@ -43,6 +43,12 @@ run_cli theme
 run_cli statusline
 assert_file "$LAZYTMUX_DATA/theme.tmux"
 assert_file "$LAZYTMUX_DATA/statusline.tmux"
+run_cli theme catppuccin-mocha
+assert_contains "$(cat "$LAZYTMUX_CONFIG/theme.lua")" 'name = "catppuccin-mocha"'
+assert_contains "$(cat "$LAZYTMUX_DATA/theme.tmux")" '#1E1E2E'
+unknown_theme=$(assert_fails run_cli theme absent)
+assert_contains "$unknown_theme" "unknown bundled theme: absent"
+assert_contains "$(cat "$LAZYTMUX_CONFIG/theme.lua")" 'name = "catppuccin-mocha"'
 
 spec_before=$(cksum "$LAZYTMUX_CONFIG/plugins.lua")
 run_cli toggle sensible
@@ -151,11 +157,23 @@ editor_failure=$(EDITOR="$TEST_ROOT/fakebin/editor" assert_fails run_cli ui)
 assert_contains "$editor_failure" "launching editor failed"
 export PATH=$old_path
 
+cat > "$TEST_ROOT/fakebin/fzf" <<'EOF'
+#!/usr/bin/env sh
+printf '%s\n' 'tokyonight'
+EOF
+chmod +x "$TEST_ROOT/fakebin/fzf"
+export PATH="$TEST_ROOT/fakebin:$PATH"
+run_cli theme-picker
+assert_contains "$(cat "$LAZYTMUX_CONFIG/theme.lua")" 'name = "tokyonight"'
+export PATH=$old_path
+
 mkdir -p "$TEST_ROOT/plain-bin"
 ln -s "$(command -v sh)" "$TEST_ROOT/plain-bin/sh"
 ln -s "$(command -v lua)" "$TEST_ROOT/plain-bin/lua"
 ln -s "$(command -v mkdir)" "$TEST_ROOT/plain-bin/mkdir"
 ln -s "$(command -v cp)" "$TEST_ROOT/plain-bin/cp"
+ln -s "$(command -v find)" "$TEST_ROOT/plain-bin/find"
+ln -s "$(command -v sort)" "$TEST_ROOT/plain-bin/sort"
 cat > "$TEST_ROOT/plain-bin/clear" <<'EOF'
 #!/usr/bin/env sh
 exit 0
@@ -163,6 +181,8 @@ EOF
 chmod +x "$TEST_ROOT/plain-bin/clear"
 plain_ui=$(printf 'q\n' | env PATH="$TEST_ROOT/plain-bin" "$REPO_ROOT/bin/lazytmux" ui)
 assert_contains "$plain_ui" "LazyTmux plugins"
+plain_theme_picker=$(printf '1\n' | env PATH="$TEST_ROOT/plain-bin" "$REPO_ROOT/bin/lazytmux" theme-picker)
+assert_contains "$plain_theme_picker" "applied theme catppuccin-mocha"
 
 printf '%s\n' 'return { styles = { status = {} } }' > "$LAZYTMUX_CONFIG/theme.lua"
 printf '%s\n' 'known-theme' > "$LAZYTMUX_DATA/theme.tmux"

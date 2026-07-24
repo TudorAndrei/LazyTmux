@@ -68,6 +68,7 @@ LazyTmux uses `C-Space` as the prefix.
 | Key | Action |
 | --- | --- |
 | `prefix + P` | Open the LazyTmux plugin viewer |
+| `prefix + T` | Open the theme picker |
 | `prefix + I` | Sync plugins, then source installed tmux plugins |
 | `prefix + R` | Reload LazyTmux |
 | `prefix + \|` | Split pane horizontally |
@@ -118,6 +119,7 @@ bin/lazytmux toggle sensible
 bin/lazytmux themes
 bin/lazytmux theme
 bin/lazytmux statusline
+bin/lazytmux theme-picker
 bin/lazytmux ui
 bin/lazytmux popup
 bin/lazytmux watch
@@ -152,17 +154,21 @@ LazyTmux generates tmux UI colors from:
 ~/.config/lazytmux/theme.lua
 ```
 
-The default theme is your Dracula palette. Bundled alternatives live in
-`themes/` and can be listed with:
+The default theme is your Dracula palette. Bundled alternatives, including
+Catppuccin Mocha, live in `themes/` and can be listed with:
 
 ```sh
 bin/lazytmux themes
 ```
 
-To switch themes, copy one of the bundled files over your user theme:
+Use `prefix + T` inside tmux to choose and apply a theme. The picker uses fzf
+when available and otherwise presents a numbered prompt. It updates your user
+theme, regenerates the statusline, and applies both immediately.
+
+You can also apply a theme directly:
 
 ```sh
-cp themes/tokyonight.lua ~/.config/lazytmux/theme.lua
+bin/lazytmux theme catppuccin-mocha
 ```
 
 The active theme is available to `statusline.lua` as `LazyTmuxTheme.colors`, so

@@ -43,12 +43,6 @@ return {
     desc = "Split panes while preserving SSH context",
   },
   {
-    "catppuccin/tmux",
-    name = "catppuccin",
-    enabled = false,
-    desc = "Catppuccin tmux theme",
-  },
-  {
     "TudorAndrei/amux",
     name = "amux",
     enabled = true,
