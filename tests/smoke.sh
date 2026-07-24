@@ -6,13 +6,14 @@ set -eu
 server=""
 cleanup_smoke() {
   if [ -n "$server" ]; then
-    TMUX= TMUX_TMPDIR=/private/tmp tmux -L "$server" kill-server >/dev/null 2>&1 || true
+    TMUX= tmux -L "$server" kill-server >/dev/null 2>&1 || true
   fi
   cleanup_test
 }
 trap cleanup_smoke EXIT INT TERM
 setup_test
 export REPO_ROOT
+export TMUX_TMPDIR="$TEST_TMUX_TMPDIR"
 
 fake_bin="$TEST_ROOT/fake-bin"
 starter_home="$TEST_ROOT/starter home"
@@ -37,9 +38,9 @@ fi
 EOF
 chmod +x "$fake_bin/git"
 
-TMUX= LAZYTMUX_NO_WATCH=1 PATH="$fake_bin:$PATH" TMUX_TMPDIR=/private/tmp HOME="$starter_home" \
+TMUX= LAZYTMUX_NO_WATCH=1 PATH="$fake_bin:$PATH" HOME="$starter_home" \
   tmux -L "$server" -f /dev/null new-session -d -s smoke
-TMUX= PATH="$fake_bin:$PATH" TMUX_TMPDIR=/private/tmp HOME="$starter_home" \
+TMUX= PATH="$fake_bin:$PATH" HOME="$starter_home" \
   tmux -L "$server" source-file "$REPO_ROOT/starter/.tmux.conf"
 
 cloned_root="$starter_home/.local/share/lazytmux/LazyTmux"
@@ -73,8 +74,8 @@ mkdir -p "$LAZYTMUX_PLUGIN_DIR/disabled"
 run_cli clean
 [ ! -d "$LAZYTMUX_PLUGIN_DIR/disabled" ] || fail "disabled fixture was not cleaned"
 
-TMUX= TMUX_TMPDIR=/private/tmp tmux -L "$server" run-shell "if tmux source-file \"$cloned_root/lazytmux.tmux\"; then tmux display-message \"LazyTmux reloaded\"; else tmux display-message \"LazyTmux reload failed\"; fi"
-messages=$(TMUX= TMUX_TMPDIR=/private/tmp tmux -L "$server" show-messages)
+TMUX= tmux -L "$server" run-shell "if tmux source-file \"$cloned_root/lazytmux.tmux\"; then tmux display-message \"LazyTmux reloaded\"; else tmux display-message \"LazyTmux reload failed\"; fi"
+messages=$(TMUX= tmux -L "$server" show-messages)
 assert_contains "$messages" 'command: display-message "LazyTmux reloaded"'
 
 printf '%s\n' "smoke test passed"
