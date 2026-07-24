@@ -9,11 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - name: Build tmux 3.7b
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes bison build-essential curl libevent-dev libncurses-dev pkg-config
+          sudo apt-get install --yes bison build-essential curl libevent-dev libncurses-dev libreadline-dev pkg-config
+      - uses: jdx/mise-action@v4
+        with:
+          version: 2026.7.12
+      - name: Build tmux 3.7b
+        run: |
           curl -L --fail --output /tmp/tmux-3.7b.tar.gz https://github.com/tmux/tmux/releases/download/3.7b/tmux-3.7b.tar.gz
           tar -xzf /tmp/tmux-3.7b.tar.gz -C /tmp
           cd /tmp/tmux-3.7b
